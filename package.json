@@ -1,0 +1,126 @@
+{
+  "name": "gitcom",
+  "version": "1.0.1",
+  "description": "AI-powered commit assistant for Kiro - helps create meaningful and structured git commit messages",
+  "main": "src/extension.js",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1A202C",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.74.0",
+    "kiro": "^1.0.0",
+    "node": ">=16.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/extension.js"
+  },
+  "keywords": [
+    "kiro",
+    "git",
+    "commit",
+    "ai",
+    "assistant"
+  ],
+  "author": "Benedicte Tuteka(Blessing Tutka)",
+  "publisher": "kiro-extensions",
+  "displayName": "GitCom - AI Commit Assistant",
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kiro-extensions/gitcom"
+  },
+  "bugs": {
+    "url": "https://github.com/kiro-extensions/gitcom/issues"
+  },
+  "homepage": "https://github.com/kiro-extensions/gitcom#readme",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "gitcom.generateCommit",
+        "title": "Generate AI Commit Message",
+        "category": "GitCom"
+      },
+      {
+        "command": "gitcom.analyzeChanges",
+        "title": "Analyze Git Changes",
+        "category": "GitCom"
+      },
+      {
+        "command": "gitcom.openPanel",
+        "title": "Open GitCom Panel",
+        "category": "GitCom"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gitcom",
+          "title": "GitCom",
+          "icon": "panel-icon.png"
+        }
+      ]
+    },
+    "views": {
+      "gitcom": [
+        {
+          "id": "gitcomPanel",
+          "name": "GitCom Assistant",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "GitCom",
+      "properties": {
+        "gitcom.commitStyle": {
+          "type": "string",
+          "default": "conventional",
+          "enum": [
+            "conventional",
+            "semantic",
+            "custom"
+          ],
+          "description": "Commit message style format"
+        },
+        "gitcom.maxLength": {
+          "type": "number",
+          "default": 72,
+          "description": "Maximum commit message length"
+        },
+        "gitcom.detailLevel": {
+          "type": "string",
+          "default": "normal",
+          "enum": [
+            "concise",
+            "normal",
+            "verbose"
+          ],
+          "description": "AI commit message detail level"
+        },
+        "gitcom.autoStage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically stage files by groups"
+        },
+        "gitcom.batchCommits": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable batch commit operations"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "simple-git": "^3.19.1"
+  }
+}
