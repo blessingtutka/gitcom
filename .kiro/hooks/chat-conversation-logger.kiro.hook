@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Chat Conversation Logger",
+  "description": "Monitors chat conversations and automatically saves prompts and AI responses to a markdown documentation file",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.txt",
+      "*.md",
+      "*.chat",
+      "*.log"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the recent chat conversation or file changes and extract the user's prompt and the AI's helpful response. Save this information in a well-formatted markdown file called 'kiro_chat_doc.md' with sections for the user prompt, AI response, and any key insights or solutions provided."
+  }
+}
