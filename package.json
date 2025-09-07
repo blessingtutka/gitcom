@@ -1,126 +1,274 @@
 {
-  "name": "gitcom",
-  "version": "1.0.1",
-  "description": "AI-powered commit assistant for Kiro - helps create meaningful and structured git commit messages",
-  "main": "src/extension.js",
-  "icon": "icon.png",
-  "galleryBanner": {
-    "color": "#1A202C",
-    "theme": "dark"
-  },
-  "engines": {
-    "vscode": "^1.74.0",
-    "kiro": "^1.0.0",
-    "node": ">=16.0.0"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/extension.js"
-  },
-  "keywords": [
-    "kiro",
-    "git",
-    "commit",
-    "ai",
-    "assistant"
-  ],
-  "author": "Benedicte Tuteka(Blessing Tutka)",
-  "publisher": "kiro-extensions",
-  "displayName": "GitCom - AI Commit Assistant",
-  "categories": [
-    "Other",
-    "SCM Providers"
-  ],
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/kiro-extensions/gitcom"
-  },
-  "bugs": {
-    "url": "https://github.com/kiro-extensions/gitcom/issues"
-  },
-  "homepage": "https://github.com/kiro-extensions/gitcom#readme",
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "contributes": {
-    "commands": [
-      {
-        "command": "gitcom.generateCommit",
-        "title": "Generate AI Commit Message",
-        "category": "GitCom"
-      },
-      {
-        "command": "gitcom.analyzeChanges",
-        "title": "Analyze Git Changes",
-        "category": "GitCom"
-      },
-      {
-        "command": "gitcom.openPanel",
-        "title": "Open GitCom Panel",
-        "category": "GitCom"
-      }
+    "name": "gitcom",
+    "version": "1.0.1",
+    "description": "GitCom - AI-Powered Commit Assistant\nAn intelligent git commit assistant extension for Kiro that helps developers create meaningful, structured, and consistent commit messages using AI analysis.\n\nFeatures:\n- Git Diff Analysis: Uses simple-git to analyze staged/unstaged changes, file paths, and diff contents\n- AI Commit Suggestions: Generates intelligent commit messages with 3 detail levels (concise/normal/verbose)\n- Interactive UI & CLI: Preview, edit, apply, or reject AI suggestions through both interfaces\n- Batch Commit Operations: Stage files by groups and apply multiple commits efficiently\n- Multiple Commit Styles: Supports Conventional Commits, Semantic versioning, and custom formats\n\nUsage:\n1. Make your code changes (staged or unstaged)\n2. Run GitCom: Generate AI Commit Message from the command palette\n3. Review AI-generated suggestions with your chosen detail level\n4. Apply immediately, edit and rewrite, or reject and continue manually\n5. GitCom stages files by groups and applies commits with chosen messages\n6. Push normally afterward",
+    "main": "./out/extension.js",
+    "icon": "icon.png",
+    "galleryBanner": {
+        "color": "#1A202C",
+        "theme": "dark"
+    },
+    "engines": {
+        "vscode": "^1.74.0",
+        "kiro": "^1.0.0",
+        "node": ">=16.0.0"
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run build",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "node out/extension.js",
+        "build": "tsc -p ./",
+        "watch": "tsc -w"
+    },
+    "keywords": [
+        "kiro",
+        "git",
+        "commit",
+        "ai",
+        "assistant"
     ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "gitcom",
-          "title": "GitCom",
-          "icon": "panel-icon.png"
-        }
-      ]
+    "author": "Benedicte Tuteka(Blessing Tutka)",
+    "publisher": "kiro-extensions",
+    "displayName": "GitCom - AI Commit Assistant",
+    "categories": [
+        "Other",
+        "SCM Providers"
+    ],
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/kiro-extensions/gitcom"
     },
-    "views": {
-      "gitcom": [
-        {
-          "id": "gitcomPanel",
-          "name": "GitCom Assistant",
-          "type": "webview"
-        }
-      ]
+    "bugs": {
+        "url": "https://github.com/kiro-extensions/gitcom/issues"
     },
-    "configuration": {
-      "title": "GitCom",
-      "properties": {
-        "gitcom.commitStyle": {
-          "type": "string",
-          "default": "conventional",
-          "enum": [
-            "conventional",
-            "semantic",
-            "custom"
-          ],
-          "description": "Commit message style format"
+    "homepage": "https://github.com/kiro-extensions/gitcom#readme",
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "gitcom.generateCommit",
+                "title": "Generate AI Commit Message",
+                "category": "GitCom"
+            },
+            {
+                "command": "gitcom.analyzeChanges",
+                "title": "Analyze Git Changes",
+                "category": "GitCom"
+            },
+            {
+                "command": "gitcom.openPanel",
+                "title": "Open GitCom Panel",
+                "category": "GitCom"
+            },
+            {
+                "command": "gitcom.manageLearning",
+                "title": "Manage Learning System",
+                "category": "GitCom"
+            },
+            {
+                "command": "gitcom.manageTemplates",
+                "title": "Manage Commit Templates",
+                "category": "GitCom"
+            },
+            {
+                "command": "gitcom.showPerformanceStats",
+                "title": "Show Performance Statistics",
+                "category": "GitCom"
+            }
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "gitcom",
+                    "title": "GitCom",
+                    "icon": "panel-icon.png"
+                }
+            ]
         },
-        "gitcom.maxLength": {
-          "type": "number",
-          "default": 72,
-          "description": "Maximum commit message length"
+        "views": {
+            "gitcom": [
+                {
+                    "id": "gitcomPanel",
+                    "name": "GitCom Assistant",
+                    "type": "webview",
+                    "icon": "panel-icon.png"
+                }
+            ]
         },
-        "gitcom.detailLevel": {
-          "type": "string",
-          "default": "normal",
-          "enum": [
-            "concise",
-            "normal",
-            "verbose"
-          ],
-          "description": "AI commit message detail level"
-        },
-        "gitcom.autoStage": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically stage files by groups"
-        },
-        "gitcom.batchCommits": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable batch commit operations"
+        "configuration": {
+            "title": "GitCom",
+            "properties": {
+                "gitcom.commitStyle": {
+                    "type": "string",
+                    "default": "conventional",
+                    "enum": [
+                        "conventional",
+                        "semantic",
+                        "custom"
+                    ],
+                    "description": "Commit message style format"
+                },
+                "gitcom.detailLevel": {
+                    "type": "string",
+                    "default": "normal",
+                    "enum": [
+                        "concise",
+                        "normal",
+                        "verbose"
+                    ],
+                    "description": "AI commit message detail level"
+                },
+                "gitcom.maxLength": {
+                    "type": "number",
+                    "default": 72,
+                    "description": "Maximum commit message length"
+                },
+                "gitcom.autoStage": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically stage files by groups"
+                },
+                "gitcom.batchCommits": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable batch commit operations"
+                },
+                "gitcom.batchSize": {
+                    "type": "number",
+                    "default": 10,
+                    "description": "Batch size for processing files"
+                },
+                "gitcom.conflictResolutionStrategy": {
+                    "type": "string",
+                    "default": "balanced",
+                    "description": "Strategy for resolving commit grouping conflicts"
+                },
+                "gitcom.defaultTemplate": {
+                    "type": "string",
+                    "default": "conventional",
+                    "description": "Default commit message template to use"
+                },
+                "gitcom.enableBatching": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable batching for staging files"
+                },
+                "gitcom.enableBreakingChangeDetection": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically detect and mark breaking changes"
+                },
+                "gitcom.enableCache": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable caching for better performance"
+                },
+                "gitcom.enableCustomTemplates": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable custom commit message templates"
+                },
+                "gitcom.enableDynamicTemplates": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable dynamic template generation from commit history"
+                },
+                "gitcom.enableFeatureDetection": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Intelligent feature detection for better commit grouping"
+                },
+                "gitcom.enableIntelligentCommits": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable intelligent commit generation with automatic grouping and staging"
+                },
+                "gitcom.enableLearning": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable learning system to adapt to user preferences"
+                },
+                "gitcom.enableParallelProcessing": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable parallel processing for better performance"
+                },
+                "gitcom.enablePatternLearning": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable pattern learning for feature detection"
+                },
+                "gitcom.enableSemanticAnalysis": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable advanced semantic analysis of code changes"
+                },
+                "gitcom.groupingStrategy": {
+                    "type": "string",
+                    "default": "intelligent",
+                    "description": "Strategy for grouping files into commits"
+                },
+                "gitcom.maxCommitMessageLength": {
+                    "type": "number",
+                    "default": 72,
+                    "description": "Maximum length for commit message subject line"
+                },
+                "gitcom.maxConcurrency": {
+                    "type": "number",
+                    "default": 5,
+                    "description": "Maximum concurrent operations for optimization"
+                },
+                "gitcom.maxFilesPerCommit": {
+                    "type": "number",
+                    "default": 10,
+                    "description": "Maximum number of files per commit"
+                },
+                "gitcom.orchestratorBatchSize": {
+                    "type": "number",
+                    "default": 50,
+                    "description": "Batch size for commit orchestrator"
+                },
+                "gitcom.prioritizeFeatures": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Commit feature changes before others"
+                },
+                "gitcom.separateTestCommits": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Separate commits for test files"
+                }
+            }
         }
-      }
+    },
+    "dependencies": {
+        "ml-kmeans": "^6.0.0",
+        "natural": "^8.1.0",
+        "openai": "^5.19.1",
+        "simple-git": "^3.19.1"
+    },
+    "installationInfo": {
+        "identifier": "kiro-extensions.gitcom",
+        "version": "1.0.1",
+        "source": "Local",
+        "cacheSize": "2B",
+        "categories": [
+            "Other",
+            "SCM Providers"
+        ]
+    },
+    "devDependencies": {
+        "@types/node": "^24.3.1",
+        "@types/vscode": "^1.103.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.2",
+        "@eslint/js": "^9.13.0",
+        "@stylistic/eslint-plugin": "^2.9.0",
+        "@types/vscode-webview": "^1.57.0",
+        "eslint": "^9.13.0",
+        "typescript-eslint": "^8.39.0"
     }
-  },
-  "dependencies": {
-    "simple-git": "^3.19.1"
-  }
 }
