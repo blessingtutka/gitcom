@@ -17,7 +17,7 @@ body {
 
 .section-title {
     font-size: 16px;
-    font-weight: bold;
+    font-weight: semi-bold;
     margin-bottom: 12px;
     color: var(--vscode-panelTitle-activeForeground);
     display: flex;
@@ -25,13 +25,14 @@ body {
     gap: 8px;
 }
 
-.setting{
+.setting {
     flex-direction: column;
-    align-items: flex-start!important;
+    align-items: flex-start !important;
     gap: 8px;
 }
 
-.setting-row,.setting {
+.setting-row,
+.setting {
     display: flex;
     gap: 8px;
     align-items: center;
@@ -44,7 +45,8 @@ body {
     color: var(--vscode-foreground);
 }
 
-select, input {
+select,
+input {
     background-color: var(--vscode-input-background);
     color: var(--vscode-input-foreground);
     border: 1px solid var(--vscode-input-border);
@@ -270,7 +272,7 @@ button:hover {
 }
 
 .error-action::before {
-    content: "• ";
+    content: '• ';
     color: var(--vscode-errorForeground);
 }
 
@@ -373,13 +375,34 @@ button:hover {
     text-transform: uppercase;
 }
 
-.commit-type-feat { background-color: #28a745; color: white; }
-.commit-type-fix { background-color: #dc3545; color: white; }
-.commit-type-docs { background-color: #17a2b8; color: white; }
-.commit-type-style { background-color: #6f42c1; color: white; }
-.commit-type-refactor { background-color: #fd7e14; color: white; }
-.commit-type-test { background-color: #20c997; color: white; }
-.commit-type-chore { background-color: #6c757d; color: white; }
+.commit-type-feat {
+    background-color: #28a745;
+    color: white;
+}
+.commit-type-fix {
+    background-color: #dc3545;
+    color: white;
+}
+.commit-type-docs {
+    background-color: #17a2b8;
+    color: white;
+}
+.commit-type-style {
+    background-color: #6f42c1;
+    color: white;
+}
+.commit-type-refactor {
+    background-color: #fd7e14;
+    color: white;
+}
+.commit-type-test {
+    background-color: #20c997;
+    color: white;
+}
+.commit-type-chore {
+    background-color: #6c757d;
+    color: white;
+}
 
 .commit-message {
     flex: 1;
@@ -430,10 +453,22 @@ button:hover {
     text-align: center;
 }
 
-.change-type-added { background-color: #28a745; color: white; }
-.change-type-modified { background-color: #ffc107; color: black; }
-.change-type-deleted { background-color: #dc3545; color: white; }
-.change-type-renamed { background-color: #17a2b8; color: white; }
+.change-type-added {
+    background-color: #28a745;
+    color: white;
+}
+.change-type-modified {
+    background-color: #ffc107;
+    color: black;
+}
+.change-type-deleted {
+    background-color: #dc3545;
+    color: white;
+}
+.change-type-renamed {
+    background-color: #17a2b8;
+    color: white;
+}
 
 .file-path {
     flex: 1;
@@ -491,4 +526,33 @@ button:hover {
 
 .commit-message-input {
     display: none;
+}
+
+/* ACCORDION */
+.accordion-header {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+}
+.accordion-header::after {
+    font: var(--fa-font-solid);
+    font-weight: 900;
+    content: '\f054';
+    transition: transform 0.2s;
+}
+.accordion-header.active::after {
+    transform: rotate(90deg);
+}
+.accordion-body {
+    display: none;
+    margin-top: 8px;
+}
+.accordion-body.active {
+    display: block;
+}
+.icon {
+    color: white;
+    margin-left: 4px;
 }
