@@ -109,7 +109,7 @@
                 "gitcom.openRouterApiKeyHERE": {
                     "type": "string",
                     "default": "",
-                    "description": "API key for OpenRouter"
+                    "description": "${OPENAI_API_KEY}"
                 },
                 "gitcom.commitStyle": {
                     "type": "string",
