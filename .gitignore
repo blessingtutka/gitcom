@@ -394,6 +394,8 @@ out
 /.env.*.local
 *._local.ts
 
+tests
+
 
 # Ignore all files in the uploads directory
 uploads/*
