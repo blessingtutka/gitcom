@@ -104,7 +104,7 @@
                 "gitcom.openaiApiKey": {
                     "type": "string",
                     "default": "",
-                    "description": "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"
+                    "description": "${OPENAI_API_KEY}"
                 },
                 "gitcom.openRouterApiKeyHERE": {
                     "type": "string",
