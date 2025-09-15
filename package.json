@@ -1,6 +1,6 @@
 {
     "name": "smart-gitcom",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "GitCom - AI-Powered Commit Assistant\nAn intelligent git commit assistant extension for Kiro that helps developers create meaningful, structured, and consistent commit messages using AI analysis.\n\nFeatures:\n- Git Diff Analysis: Uses simple-git to analyze staged/unstaged changes, file paths, and diff contents\n- AI Commit Suggestions: Generates intelligent commit messages with 3 detail levels (concise/normal/verbose)\n- Interactive UI & CLI: Preview, edit, apply, or reject AI suggestions through both interfaces\n- Batch Commit Operations: Stage files by groups and apply multiple commits efficiently\n- Multiple Commit Styles: Supports Conventional Commits, Semantic versioning, and custom formats\n\nUsage:\n1. Make your code changes (staged or unstaged)\n2. Run GitCom: Generate AI Commit Message from the command palette\n3. Review AI-generated suggestions with your chosen detail level\n4. Apply immediately, edit and rewrite, or reject and continue manually\n5. GitCom stages files by groups and applies commits with chosen messages\n6. Push normally afterward",
     "main": "./out/extension.js",
     "icon": "media/icon.png",
