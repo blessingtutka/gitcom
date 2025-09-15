@@ -1,15 +1,15 @@
 {
-    "name": "gitcom",
+    "name": "smart-gitcom",
     "version": "1.0.1",
     "description": "GitCom - AI-Powered Commit Assistant\nAn intelligent git commit assistant extension for Kiro that helps developers create meaningful, structured, and consistent commit messages using AI analysis.\n\nFeatures:\n- Git Diff Analysis: Uses simple-git to analyze staged/unstaged changes, file paths, and diff contents\n- AI Commit Suggestions: Generates intelligent commit messages with 3 detail levels (concise/normal/verbose)\n- Interactive UI & CLI: Preview, edit, apply, or reject AI suggestions through both interfaces\n- Batch Commit Operations: Stage files by groups and apply multiple commits efficiently\n- Multiple Commit Styles: Supports Conventional Commits, Semantic versioning, and custom formats\n\nUsage:\n1. Make your code changes (staged or unstaged)\n2. Run GitCom: Generate AI Commit Message from the command palette\n3. Review AI-generated suggestions with your chosen detail level\n4. Apply immediately, edit and rewrite, or reject and continue manually\n5. GitCom stages files by groups and applies commits with chosen messages\n6. Push normally afterward",
     "main": "./out/extension.js",
-    "icon": "icon.png",
+    "icon": "media/icon.png",
     "galleryBanner": {
         "color": "#1A202C",
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.74.0",
+        "vscode": "^1.72.0",
         "kiro": "^1.0.0",
         "node": ">=16.0.0"
     },
@@ -28,7 +28,7 @@
         "assistant"
     ],
     "author": "Benedicte Tuteka(Blessing Tutka)",
-    "publisher": "kiro-extensions",
+    "publisher": "blessingtutka",
     "displayName": "GitCom - AI Commit Assistant",
     "categories": [
         "Other",
@@ -37,12 +37,12 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/kiro-extensions/gitcom"
+        "url": "https://github.com/blessingtutka/gitcom"
     },
     "bugs": {
-        "url": "https://github.com/kiro-extensions/gitcom/issues"
+        "url": "https://github.com/blessingtutka/gitcom/issues"
     },
-    "homepage": "https://github.com/kiro-extensions/gitcom#readme",
+    "homepage": "https://github.com/blessingtutka/gitcom#readme",
     "activationEvents": [
         "onStartupFinished"
     ],
@@ -84,7 +84,7 @@
                 {
                     "id": "gitcom",
                     "title": "GitCom",
-                    "icon": "panel-icon.png"
+                    "icon": "media/panel-icon.png"
                 }
             ]
         },
@@ -94,13 +94,23 @@
                     "id": "gitcomPanel",
                     "name": "GitCom Assistant",
                     "type": "webview",
-                    "icon": "panel-icon.png"
+                    "icon": "media/panel-icon.png"
                 }
             ]
         },
         "configuration": {
             "title": "GitCom",
             "properties": {
+                "gitcom.openaiApiKey": {
+                    "type": "string",
+                    "default": "",
+                    "description": "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"
+                },
+                "gitcom.openRouterApiKeyHERE": {
+                    "type": "string",
+                    "default": "",
+                    "description": "API key for OpenRouter"
+                },
                 "gitcom.commitStyle": {
                     "type": "string",
                     "default": "conventional",
@@ -245,13 +255,14 @@
         }
     },
     "dependencies": {
+        "dotenv": "^17.2.2",
         "ml-kmeans": "^6.0.0",
         "natural": "^8.1.0",
         "openai": "^5.19.1",
         "simple-git": "^3.19.1"
     },
     "installationInfo": {
-        "identifier": "kiro-extensions.gitcom",
+        "identifier": "blessingtutka.gitcom",
         "version": "1.0.1",
         "source": "Local",
         "cacheSize": "2B",
@@ -261,14 +272,14 @@
         ]
     },
     "devDependencies": {
-        "@types/node": "^24.3.1",
-        "@types/vscode": "^1.103.0",
-        "ts-node": "^10.9.2",
-        "typescript": "^5.9.2",
         "@eslint/js": "^9.13.0",
         "@stylistic/eslint-plugin": "^2.9.0",
+        "@types/node": "^24.3.1",
+        "@types/vscode": "^1.72.0",
         "@types/vscode-webview": "^1.57.0",
         "eslint": "^9.13.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.2",
         "typescript-eslint": "^8.39.0"
     }
 }

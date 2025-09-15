@@ -2,7 +2,8 @@
 // Commit Types & Configurations
 // ========================================================
 type CommitTypes = Record<string, string>;
-type ChangeType = 'feat' | 'fix' | 'docs' | 'style' | 'refactor' | 'test' | 'chore';
+type CommitType = 'feat' | 'fix' | 'docs' | 'style' | 'refactor' | 'test' | 'chore';
+type ChangeType = 'added' | 'modified' | 'deleted' | 'renamed';
 
 interface ConfigDefaults {
     commitStyle: 'conventional' | string;
@@ -525,6 +526,14 @@ interface PreprocessedData {
     categoryMap: Map<string, AnalyzedChange[]>;
     featureMap: Map<string, AnalyzedChange[]>;
     directoryMap: Map<string, AnalyzedChange[]>;
+}
+
+// ========================================================
+// AI
+// ========================================================
+interface AIFeatureDetect {
+    features: string[];
+    confidence: number;
 }
 
 // ========================================================

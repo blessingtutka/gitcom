@@ -1,12 +1,11 @@
-import { AnalyzedChange } from "../change-analyzer";
+import { AnalyzedChange } from '../change-analyzer';
 /**
  * Represents a group of related changes that should be committed together
  */
 export class CommitGroup {
     id: string;
-    type: ChangeType;
+    type: CommitType;
     scope: string | null;
-    description: string;
     files: AnalyzedChange[];
     message: string;
     priority: number;
@@ -15,15 +14,13 @@ export class CommitGroup {
         id,
         type,
         scope = null,
-        description,
         files = [],
         message = '',
         priority = 0,
     }: {
         id: string;
-        type: 'feat' | 'fix' | 'docs' | 'style' | 'refactor' | 'test' | 'chore';
+        type: CommitType;
         scope?: string | null;
-        description: string;
         files?: AnalyzedChange[];
         message?: string;
         priority?: number;
@@ -31,7 +28,6 @@ export class CommitGroup {
         this.id = id;
         this.type = type;
         this.scope = scope;
-        this.description = description;
         this.files = files;
         this.message = message;
         this.priority = priority;
@@ -155,6 +151,7 @@ export class ChangeAnalysis {
     changeTypes: Record<string, number>;
     fileCategories: Record<string, number>;
     totalLines: { added: number; removed: number };
+    scope: Array<{ name: string; confidence: number }>;
     detectedFeatures: string[];
     complexity: 'low' | 'medium' | 'high';
     estimatedCommits?: number;
@@ -165,6 +162,7 @@ export class ChangeAnalysis {
         fileCategories = {},
         totalLines = { added: 0, removed: 0 },
         detectedFeatures = [],
+        scope = [],
         complexity = 'low',
         estimatedCommits = 1,
     }: {
@@ -173,6 +171,7 @@ export class ChangeAnalysis {
         fileCategories?: Record<string, number>;
         totalLines?: { added: number; removed: number };
         detectedFeatures?: string[];
+        scope?: Array<{ name: string; confidence: number }>;
         complexity?: 'low' | 'medium' | 'high';
         estimatedCommits?: number;
     }) {
@@ -182,6 +181,7 @@ export class ChangeAnalysis {
         this.totalLines = totalLines;
         this.detectedFeatures = detectedFeatures;
         this.complexity = complexity;
+        this.scope = scope;
         this.estimatedCommits = estimatedCommits;
     }
 }
