@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { CommitGroup } from './types/models';
+import { fileTypePatterns } from './utils';
 
 /**
  * Custom commit message template system
@@ -276,7 +277,6 @@ class CommitMessageTemplates {
             // Basic information
             type: commitGroup.type || 'feat',
             scope: commitGroup.scope || null,
-            description: commitGroup.description || 'Update files',
 
             // File information
             fileCount: commitGroup.files.length,
@@ -595,15 +595,25 @@ class CommitMessageTemplates {
      * @returns File type
      */
     private _getFileType(filePath: string): string {
-        const ext = path.extname(filePath).toLowerCase();
-        const basename = path.basename(filePath).toLowerCase();
+        const fileName = path.basename(filePath);
+        const normalizedPath = filePath.replace(/\\/g, '/');
 
-        if (basename.includes('test') || basename.includes('spec')) return 'test';
-        if (basename.includes('readme') || ext === '.md') return 'docs';
-        if (ext === '.json' || ext === '.yml' || ext === '.yaml') return 'config';
-        if (ext === '.css' || ext === '.scss' || ext === '.sass') return 'style';
+        let bestMatch: { category: string; weight: number } | null = null;
 
-        return 'code';
+        // Check against all patterns to find the best match
+        for (const { pattern, category, weight } of fileTypePatterns) {
+            if (pattern.test(filePath) || pattern.test(fileName) || pattern.test(normalizedPath)) {
+                if (!bestMatch || weight > bestMatch.weight) {
+                    bestMatch = { category, weight };
+                }
+            }
+        }
+
+        if (bestMatch) {
+            return bestMatch.category;
+        }
+
+        return 'feature';
     }
 
     /**

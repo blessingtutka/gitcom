@@ -5,6 +5,8 @@ import * as crypto from 'crypto';
 import { AnalyzedChange } from './change-analyzer';
 import { CommitGroup, CommitPlan } from './types';
 import { CommitGrouper } from './commit-grouper';
+import { openAIClient, getApiKey } from './openai';
+import { determineScope } from './utils';
 
 interface AIClusteringOptions {
     enabled: boolean;
@@ -48,7 +50,7 @@ class AIClusteringCommitGrouper extends CommitGrouper {
 
         this.aiOptions = {
             enabled: options.aiOptions?.enabled ?? true,
-            apiKey: options.aiOptions?.apiKey || process.env.OPENAI_API_KEY,
+            apiKey: options.aiOptions?.apiKey || getApiKey(),
             model: options.aiOptions?.model || 'gpt-4.1-mini',
             embeddingModel: options.aiOptions?.embeddingModel || 'text-embedding-ada-002',
             minClusterSize: options.aiOptions?.minClusterSize || 2,
@@ -62,7 +64,7 @@ class AIClusteringCommitGrouper extends CommitGrouper {
         this.tokenizer = new natural.WordTokenizer();
 
         if (this.aiOptions.enabled && this.aiOptions.apiKey) {
-            this.openai = new OpenAI({ apiKey: this.aiOptions.apiKey });
+            this.openai = openAIClient();
         }
     }
 
@@ -414,12 +416,11 @@ Return JSON with:
     /**
      * Create a commit group from cluster
      */
-    private _createCommitGroup(files: AnalyzedChange[], type: ChangeType, cluster: Cluster, id: number): CommitGroup {
+    private _createCommitGroup(files: AnalyzedChange[], type: CommitType, cluster: Cluster, id: number): CommitGroup {
         return new CommitGroup({
             id: `group-${id}`,
             type: type,
-            scope: this._determineScope(files),
-            description: this._generateDescription(type, cluster.description, files),
+            scope: determineScope(files),
             files: files,
             priority: this._calculatePriority(type, files),
         });

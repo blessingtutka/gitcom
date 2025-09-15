@@ -1,8 +1,11 @@
+import * as vscode from 'vscode';
 import simpleGit, { StatusResult } from 'simple-git';
 import path from 'path';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
-import { AdvancedFeatureDetector } from './advanced-feature-detector';
+import { openAIClient } from './openai';
+import { fileTypePatterns } from './utils';
+import { callKiroAI } from './kiroai';
 
 /**
  * Cache for storing analysis results to avoid reprocessing unchanged files
@@ -57,11 +60,11 @@ class AnalysisCache {
  */
 class AnalyzedChange {
     filePath: string;
-    changeType: string; // 'added' | 'modified' | 'deleted' | 'renamed'
+    changeType: ChangeType;
     diff: string;
     linesAdded: number;
     linesRemoved: number;
-    fileCategory: string; // 'feature' | 'test' | 'docs' | 'config' | 'style'
+    fileCategory: string; // 'feature' | 'test' | 'docs' | 'config' | 'style';
     detectedFeatures: string[];
     dependencies: string[];
     advancedFeatures: Feature[];
@@ -77,7 +80,7 @@ class AnalyzedChange {
         dependencies = [],
     }: {
         filePath: string;
-        changeType: string;
+        changeType: ChangeType;
         diff: string;
         linesAdded?: number;
         linesRemoved?: number;
@@ -125,6 +128,7 @@ class ChangeAnalyzer {
     private options: Required<ChangeAnalyzerOptions>;
     private cache: AnalysisCache | null;
     private stats: PerformanceStats;
+    // Update the fileTypePatterns to be more comprehensive
 
     constructor(workspaceRoot?: string, options: ChangeAnalyzerOptions = {}) {
         this.workspaceRoot = workspaceRoot || process.cwd();
@@ -172,7 +176,7 @@ class ChangeAnalyzer {
             const analyzedChanges = await this._processFilesInBatches(unstagedFiles, status);
 
             // Analyze relationships between files (optimized)
-            await this._analyzeFileRelationshipsOptimized(analyzedChanges);
+            await this._analyzeFileRelationships(analyzedChanges);
 
             // Update statistics
             this.stats.filesProcessed += unstagedFiles.length;
@@ -325,17 +329,12 @@ class ChangeAnalyzer {
      */
     async getFileChanges(filePath: string): Promise<string> {
         try {
-            // For unstaged changes, we don't use --cached
-            const diff = await this.git.diff([filePath]);
-
-            // Truncate very large diffs to prevent memory issues
-            if (diff.length > this.options.maxDiffSize) {
-                const truncatedDiff = diff.substring(0, this.options.maxDiffSize);
-                console.warn(`Diff for ${filePath} truncated due to size (${diff.length} bytes)`);
-                return truncatedDiff + '\n... [diff truncated due to size]';
+            const diff = await this.git.diff(['--', filePath]); // unstaged vs working tree
+            if (!diff) {
+                // fallback: staged diff
+                return await this.git.diff(['--cached', '--', filePath]);
             }
-
-            return diff;
+            return diff.length > this.options.maxDiffSize ? diff.substring(0, this.options.maxDiffSize) + '\n... [diff truncated due to size]' : diff;
         } catch (error) {
             throw new Error(`Failed to get changes for file ${filePath}: ${(error as Error).message}`);
         }
@@ -348,7 +347,7 @@ class ChangeAnalyzer {
      * @param {Object} status - Git status object
      * @returns {Promise<string>} Change type
      */
-    async detectChangeType(filePath: string, diff: string, status: StatusResult): Promise<string> {
+    async detectChangeType(filePath: string, status: StatusResult): Promise<ChangeType> {
         if (status.not_added.includes(filePath)) return 'added';
         if (status.deleted.includes(filePath)) return 'deleted';
         if (status.modified.includes(filePath)) return 'modified';
@@ -357,21 +356,12 @@ class ChangeAnalyzer {
     }
 
     /**
-     * Analyzes relationships between files (legacy method for compatibility)
-     * @param {AnalyzedChange[]} changes - Array of analyzed changes
-     * @returns {Promise<void>}
-     */
-    async analyzeFileRelationships(changes: AnalyzedChange[]): Promise<void> {
-        return this._analyzeFileRelationshipsOptimized(changes);
-    }
-
-    /**
-     * Optimized version of file relationship analysis with parallel processing
+     * File relationship analysis with parallel processing
      * @private
      * @param {AnalyzedChange[]} changes - Array of analyzed changes
      * @returns {Promise<void>}
      */
-    private async _analyzeFileRelationshipsOptimized(changes: AnalyzedChange[]): Promise<void> {
+    private async _analyzeFileRelationships(changes: AnalyzedChange[]): Promise<void> {
         if (changes.length === 0) return;
 
         // Pre-build lookup maps for faster dependency resolution
@@ -393,7 +383,7 @@ class ChangeAnalyzer {
         }
 
         // Process dependencies in parallel batches
-        const dependencyPromises = changes.map((change) => this._findFileDependenciesOptimized(change, changes, fileMap, pathMap));
+        const dependencyPromises = changes.map((change) => this._findFileDependencies(change, changes, fileMap, pathMap));
 
         // Limit concurrency for dependency analysis
         const dependencyResults = await this._limitConcurrency(dependencyPromises, this.options.maxConcurrency);
@@ -413,10 +403,10 @@ class ChangeAnalyzer {
      */
     private async _analyzeFile(filePath: string, status: StatusResult): Promise<AnalyzedChange> {
         const diff = await this.getFileChanges(filePath);
-        const changeType = await this.detectChangeType(filePath, diff, status);
+        const changeType = await this.detectChangeType(filePath, status);
         const { linesAdded, linesRemoved } = this._parseDiffStats(diff);
-        const fileCategory = this._detectFileCategory(filePath, diff);
-        const detectedFeatures = this._detectFeatures(filePath, diff);
+        const fileCategory = this._detectFileCategory(filePath);
+        const detectedFeatures = await this._detectFeatures(filePath, diff);
 
         return new AnalyzedChange({
             filePath,
@@ -459,59 +449,26 @@ class ChangeAnalyzer {
      * @param {string} diff - Diff content
      * @returns {string} File category
      */
-    private _detectFileCategory(filePath: string, diff: string): string {
-        const fileName = path.basename(filePath).toLowerCase();
-        const dirPath = path.dirname(filePath).toLowerCase();
 
-        // Style files (check by extension first to handle styles/test.scss correctly)
-        if (
-            fileName.endsWith('.css') ||
-            fileName.endsWith('.scss') ||
-            fileName.endsWith('.sass') ||
-            fileName.endsWith('.less') ||
-            fileName.endsWith('.styl')
-        ) {
-            return 'style';
+    private _detectFileCategory(filePath: string): string {
+        const fileName = path.basename(filePath);
+        const normalizedPath = filePath.replace(/\\/g, '/');
+
+        let bestMatch: { category: string; weight: number } | null = null;
+
+        // Check against all patterns to find the best match
+        for (const { pattern, category, weight } of fileTypePatterns) {
+            if (pattern.test(filePath) || pattern.test(fileName) || pattern.test(normalizedPath)) {
+                if (!bestMatch || weight > bestMatch.weight) {
+                    bestMatch = { category, weight };
+                }
+            }
         }
 
-        // Documentation files (check before test files to handle docs/test-guide.md correctly)
-        if (
-            fileName.includes('readme') ||
-            fileName.includes('doc') ||
-            fileName.endsWith('.md') ||
-            fileName.endsWith('.txt') ||
-            dirPath.includes('doc')
-        ) {
-            return 'docs';
+        if (bestMatch) {
+            return bestMatch.category;
         }
 
-        // Test files
-        if (
-            fileName.includes('test') ||
-            fileName.includes('spec') ||
-            dirPath.includes('test') ||
-            dirPath.includes('spec') ||
-            fileName.endsWith('.test.js') ||
-            fileName.endsWith('.spec.js')
-        ) {
-            return 'test';
-        }
-
-        // Configuration files
-        if (
-            fileName.includes('config') ||
-            fileName.includes('setting') ||
-            fileName.startsWith('.') ||
-            fileName.endsWith('.json') ||
-            fileName.endsWith('.yml') ||
-            fileName.endsWith('.yaml') ||
-            fileName.endsWith('.toml') ||
-            fileName.endsWith('.ini')
-        ) {
-            return 'config';
-        }
-
-        // Default to feature
         return 'feature';
     }
 
@@ -522,42 +479,100 @@ class ChangeAnalyzer {
      * @param {string} diff - Diff content
      * @returns {string[]} Array of detected features
      */
-    private _detectFeatures(filePath: string, diff: string): string[] {
-        const features: string[] = [];
-        const fileName = path.basename(filePath, path.extname(filePath));
-        const dirPath = path.dirname(filePath);
-
-        // Extract feature from directory structure
-        const pathParts = dirPath.split(path.sep).filter((part) => part && part !== '.');
-        if (pathParts.length > 0) {
-            features.push(...pathParts);
+    private async _detectFeatures(filePath: string, diff: string): Promise<string[]> {
+        // 1. Try AI
+        const aiResult = await this.detectFeaturesWithAI(filePath, diff);
+        if (aiResult.features?.length && aiResult.confidence >= 0.4) {
+            return aiResult.features;
         }
 
-        // Extract feature from filename
-        if (fileName && fileName !== 'index') {
-            features.push(fileName);
-        }
+        console.log(aiResult);
 
-        // Extract features from diff content (function names, class names, etc.)
-        const diffLines = diff.split('\n');
-        for (const line of diffLines) {
-            if (line.startsWith('+')) {
-                // Look for function definitions
-                const functionMatch = line.match(/function\s+(\w+)|const\s+(\w+)\s*=|class\s+(\w+)/);
-                if (functionMatch) {
-                    const funcName = functionMatch[1] || functionMatch[2] || functionMatch[3];
-                    if (funcName && !features.includes(funcName)) {
-                        features.push(funcName);
-                    }
-                }
-            }
-        }
-
-        return features.slice(0, 5); // Limit to 5 features to avoid noise
+        // 2. Fallback: rule-based
+        const ruleFeatures = await this.detectFeaturesRuleBased(filePath, diff);
+        return ruleFeatures;
     }
 
     /**
-     * Optimized version of finding file dependencies using pre-built lookup maps
+     * Detects features based on file path and diff content with AI
+     * @private
+     * @param {string} filePath - Path to the file
+     * @param {string} diff - Diff content
+     * @returns {string[], number} Array of detected features and confidence level
+     */
+    private async detectFeaturesWithAI(filePath: string, diff: string): Promise<AIFeatureDetect> {
+        const prompt = `
+            You are a commit message assistant.
+            Analyze the following file change and list up to 5 key "features".
+            feature can be function name class name, component name,...
+
+            Return ONLY valid JSON:
+            {"features":["..."], "confidence":0-1}
+
+            File: ${filePath}
+            Diff:
+            \`\`\`diff
+            ${diff.slice(0, 2500)}
+            \`\`\`
+            `;
+
+        try {
+            const res = await openAIClient().chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.2,
+            });
+
+            let text = res.choices[0].message?.content ?? '';
+            // try to extract JSON block
+            const match = text.match(/\{[\s\S]*\}/);
+            if (!match) return { features: [], confidence: 0 };
+
+            const parsed = JSON.parse(match[0]);
+            return {
+                features: Array.isArray(parsed.features) ? parsed.features.slice(0, 5) : [],
+                confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
+            };
+        } catch {
+            return { features: [], confidence: 0 };
+        }
+    }
+
+    private async detectFeaturesRuleBased(filePath: string, diff: string): Promise<string[]> {
+        const features = new Set<string>();
+        const fileName = path.basename(filePath, path.extname(filePath)).toLowerCase();
+        const dirPath = path.dirname(filePath).toLowerCase();
+
+        const ignoredDirs = new Set(['src', 'lib', 'dist', 'build', 'node_modules', 'public']);
+        const ignoredFiles = new Set(['index', 'main', 'app', 'test', 'spec', 'utils', 'helpers']);
+
+        dirPath.split(path.sep).forEach((p) => {
+            if (p && !ignoredDirs.has(p) && p.length > 2) features.add(p);
+        });
+
+        if (fileName && !ignoredFiles.has(fileName)) {
+            const clean = fileName.replace(/^use-?/, '').replace(/[-_](test|spec|story|stories)$/, '');
+            if (clean.length > 2) features.add(clean);
+        }
+
+        for (const line of diff.split('\n')) {
+            if (!line.startsWith('+')) continue;
+
+            const fn = line.match(/function\s+([A-Za-z0-9_]+)/);
+            if (fn) features.add(fn[1]);
+
+            const cls = line.match(/class\s+([A-Za-z0-9_]+)/);
+            if (cls) features.add(cls[1]);
+
+            const reactComp = line.match(/const\s+([A-Z][A-Za-z0-9_]*)\s*=\s*\(/);
+            if (reactComp) features.add(reactComp[1]);
+        }
+
+        return Array.from(features).slice(0, 8);
+    }
+
+    /**
+     * File dependencies using pre-built lookup maps
      * @private
      * @param {AnalyzedChange} change - The change to analyze
      * @param {AnalyzedChange[]} allChanges - All changes for context
@@ -565,30 +580,36 @@ class ChangeAnalyzer {
      * @param {Map} pathMap - Pre-built path variations lookup map
      * @returns {Promise<string[]>} Array of dependency file paths
      */
-    private async _findFileDependenciesOptimized(
+    private async _findFileDependencies(
         change: AnalyzedChange,
         allChanges: AnalyzedChange[],
         fileMap: Map<string, AnalyzedChange>,
         pathMap: Map<string, AnalyzedChange>,
     ): Promise<string[]> {
-        const dependencies = new Set<string>(); // Use Set to automatically handle duplicates
+        const dependencies = new Set<string>();
 
-        // Only process diff lines that contain imports (performance optimization)
-        const importLines = change.diff.split('\n').filter((line) => line.startsWith('+') && (line.includes('import') || line.includes('require')));
+        // Process all diff lines, not only added ones
+        const importLines = change.diff.split('\n').filter((line) => /(import|require|export\s+\*|export\s+{)/.test(line));
 
-        // Process import statements
         for (const line of importLines) {
             const importPath = this._extractImportPath(line);
-            if (importPath && importPath.startsWith('.')) {
-                const resolvedDependency = this._resolveImportPath(change.filePath, importPath, pathMap);
-                if (resolvedDependency) {
-                    dependencies.add(resolvedDependency);
-                }
+            if (!importPath) continue;
+
+            // Relative import
+            if (importPath.startsWith('.')) {
+                const resolved = this._resolveImportPath(change.filePath, importPath, pathMap);
+                if (resolved) dependencies.add(resolved);
+            }
+
+            // Handle alias imports like @, ~, src
+            if (/^[@~]/.test(importPath) || importPath.startsWith('src/')) {
+                const normalized = importPath.replace(/^[@~]/, '');
+                const resolved = this._resolveImportPath(change.filePath, normalized, pathMap);
+                if (resolved) dependencies.add(resolved);
             }
         }
-
-        // Add directory-based relationships (optimized)
-        const directoryDeps = this._findDirectoryRelationshipsOptimized(change, allChanges, fileMap);
+        // Add directory-based relationships
+        const directoryDeps = this._findDirectoryRelationships(change, allChanges, fileMap);
         directoryDeps.forEach((dep) => dependencies.add(dep));
 
         return Array.from(dependencies);
@@ -602,8 +623,10 @@ class ChangeAnalyzer {
      */
     private _extractImportPath(line: string): string | null {
         const requireMatch = line.match(/require\(['"`]([^'"`]+)['"`]\)/);
-        const importMatch = line.match(/import.*from\s+['"`]([^'"`]+)['"`]/);
-        return requireMatch ? requireMatch[1] : importMatch ? importMatch[1] : null;
+        const importMatch = line.match(/import(?:["'\s]*[\w*{}\n, ]+from\s*)?["'`]([^'"`]+)["'`]/);
+        const exportMatch = line.match(/export\s+\*\s+from\s+['"`]([^'"`]+)['"`]/);
+
+        return requireMatch?.[1] || importMatch?.[1] || exportMatch?.[1] || null;
     }
 
     /**
@@ -629,33 +652,6 @@ class ChangeAnalyzer {
     }
 
     /**
-     * Finds dependencies for a file by analyzing imports and relationships (legacy method)
-     * @private
-     * @param {AnalyzedChange} change - The change to analyze
-     * @param {AnalyzedChange[]} allChanges - All changes for context
-     * @returns {Promise<string[]>} Array of dependency file paths
-     */
-    private async _findFileDependencies(change: AnalyzedChange, allChanges: AnalyzedChange[]): Promise<string[]> {
-        // Create temporary lookup maps for compatibility
-        const fileMap = new Map<string, AnalyzedChange>();
-        const pathMap = new Map<string, AnalyzedChange>();
-
-        for (const c of allChanges) {
-            fileMap.set(c.filePath, c);
-            const normalizedPath = c.filePath.replace(/\\/g, '/');
-            pathMap.set(normalizedPath, c);
-            pathMap.set(normalizedPath + '.js', c);
-            pathMap.set(normalizedPath + '.ts', c);
-            pathMap.set(normalizedPath + '.jsx', c);
-            pathMap.set(normalizedPath + '.tsx', c);
-            pathMap.set(normalizedPath + '/index.js', c);
-            pathMap.set(normalizedPath + '/index.ts', c);
-        }
-
-        return this._findFileDependenciesOptimized(change, allChanges, fileMap, pathMap);
-    }
-
-    /**
      * Optimized version of finding directory relationships using file map
      * @private
      * @param {AnalyzedChange} change - The change to analyze
@@ -663,11 +659,7 @@ class ChangeAnalyzer {
      * @param {Map} fileMap - Pre-built file lookup map
      * @returns {string[]} Array of related file paths
      */
-    private _findDirectoryRelationshipsOptimized(
-        change: AnalyzedChange,
-        allChanges: AnalyzedChange[],
-        fileMap: Map<string, AnalyzedChange>,
-    ): string[] {
+    private _findDirectoryRelationships(change: AnalyzedChange, allChanges: AnalyzedChange[], fileMap: Map<string, AnalyzedChange>): string[] {
         const relationships: string[] = [];
         const changeDir = path.dirname(change.filePath);
         const changeBaseName = path.basename(change.filePath, path.extname(change.filePath));
@@ -708,23 +700,6 @@ class ChangeAnalyzer {
 
         relationships.push(...sameDirFiles, ...testRelatedFiles, ...similarNameFiles);
         return relationships;
-    }
-
-    /**
-     * Finds relationships based on directory structure and naming patterns (legacy method)
-     * @private
-     * @param {AnalyzedChange} change - The change to analyze
-     * @param {AnalyzedChange[]} allChanges - All changes for context
-     * @returns {string[]} Array of related file paths
-     */
-    private _findDirectoryRelationships(change: AnalyzedChange, allChanges: AnalyzedChange[]): string[] {
-        // Create temporary file map for compatibility
-        const fileMap = new Map<string, AnalyzedChange>();
-        for (const c of allChanges) {
-            fileMap.set(c.filePath, c);
-        }
-
-        return this._findDirectoryRelationshipsOptimized(change, allChanges, fileMap);
     }
 
     /**

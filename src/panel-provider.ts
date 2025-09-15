@@ -78,9 +78,6 @@ class GitComPanelProvider implements vscode.WebviewViewProvider {
                     case 'generateCommit':
                         await this.generateIntelligentCommit();
                         break;
-                    case 'generateLegacyCommit':
-                        await this.generateLegacyCommit();
-                        break;
                     case 'resetIntelligentCommitSettings':
                         await this.resetIntelligentCommitSettings();
                         break;
@@ -201,17 +198,6 @@ class GitComPanelProvider implements vscode.WebviewViewProvider {
         }
 
         return { isValid: true };
-    }
-
-    private async generateLegacyCommit(): Promise<void> {
-        try {
-            // Trigger the legacy commit generation through the extension
-            await vscode.commands.executeCommand('gitcom.generateCommit');
-        } catch (error) {
-            this.showError('Legacy Commit Generation Failed', (error as Error).message, { errorType: 'legacy_commit_error' }, [
-                'Try using the intelligent commit generation instead',
-            ]);
-        }
     }
 
     private async resetIntelligentCommitSettings(): Promise<void> {
@@ -777,205 +763,205 @@ class GitComPanelProvider implements vscode.WebviewViewProvider {
 
         return `<!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitCom Panel</title>
-    <link href="${stylesUri}" rel="stylesheet">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>GitCom Panel</title>
+        <link href="${stylesUri}" rel="stylesheet" />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+            integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        />
+    </head>
+    <body>
+        <div class="section">
+            <div class="section-title accordion-header" onclick="toggleAccordion(this)">
+                <span><i class="fa-solid fa-gear icon"></i> Settings</span>
+            </div>
+            <div class="accordion-body">
+                <div class="setting">
+                    <span class="setting-label">Commit Style:</span>
+                    <select id="commitStyle">
+                        <option value="conventional">Conventional</option>
+                        <option value="semantic">Semantic</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
 
-</head>
-<body>
-    <div class="section">
-        <div class="section-title">
-            ⚙️ Settings
-        </div>
-        
-        <div class="setting">
-            <span class="setting-label">Commit Style:</span>
-            <select id="commitStyle">
-                <option value="conventional">Conventional</option>
-                <option value="semantic">Semantic</option>
-                <option value="custom">Custom</option>
-            </select>
-        </div>
-        
-        <div class="setting">
-            <span class="setting-label">Detail Level:</span>
-            <select id="detailLevel">
-                <option value="concise">Concise</option>
-                <option value="normal">Normal</option>
-                <option value="verbose">Verbose</option>
-            </select>
-        </div>
-        
-        <div class="setting">
-            <span class="setting-label block">Max Length:</span>
-            <input type="number" id="maxLength" min="50" max="200" />
-        </div>
-        
-        <div class="setting-row">
-            <span class="setting-label">Auto Stage:</span>
-            <input type="checkbox" id="autoStage" />
-        </div>
-        
-        <div class="setting-row">
-            <span class="setting-label">Batch Commits:</span>
-            <input type="checkbox" id="batchCommits" />
-        </div>
-        
-        <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--vscode-panel-border);">
-            <div class="section-title" style="font-size: 14px; margin-bottom: 8px;">
-                🧠 Intelligent Commits
-            </div>
-        </div>
-        
-        <div class="setting-row">
-            <span class="setting-label">Enable Intelligent Commits:</span>
-            <input type="checkbox" id="enableIntelligentCommits" />
-        </div>
-        
-        <div class="setting">
-            <span class="setting-label block">Max Files Per Commit:</span>
-            <input type="number" id="maxFilesPerCommit" min="1" max="50" />
-        </div>
-        
-        <div class="setting">
-            <span class="setting-label block">Grouping Strategy:</span>
-            <select id="groupingStrategy">
-                <option value="intelligent">Intelligent</option>
-                <option value="by-type">By Type</option>
-                <option value="by-directory">By Directory</option>
-                <option value="single-commit">Single Commit</option>
-            </select>
-        </div>
-        
-        <div class="setting-row">
-            <span class="setting-label">Separate Test Commits:</span>
-            <input type="checkbox" id="separateTestCommits" />
-        </div>
-        
-        <div class="setting-row">
-            <span class="setting-label">Enable Feature Detection:</span>
-            <input type="checkbox" id="enableFeatureDetection" />
-        </div>
-        
-        <div class="setting-row">
-            <span class="setting-label">Detect Breaking Changes:</span>
-            <input type="checkbox" id="enableBreakingChangeDetection" />
-        </div>
-        
-        <div class="setting-row">
-            <span class="setting-label">Prioritize Features:</span>
-            <input type="checkbox" id="prioritizeFeatures" />
-        </div>
-        
-        <div class="setting">
-            <span class="setting-label block">Max Commit Message Length:</span>
-            <input type="number" id="maxCommitMessageLength" min="50" max="100" />
-        </div>
-        
-        <div class="setting-row" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--vscode-panel-border);">
-            <button class="small-button" onclick="resetIntelligentCommitSettings()" style="width: 100%;">
-                Reset Intelligent Commit Settings
-            </button>
-        </div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">
-            🤖 AI Actions
-        </div>
-        <button class="primary-button" onclick="generateCommit()" id="generateButton">
-            Generate AI Commit
-        </button>
-        
-        <button class="small-button" onclick="generateLegacyCommit()" id="legacyButton" style="width: 100%;">
-            Generate Legacy Commit
-        </button>
-        
-        <!-- Progress indicator -->
-        <div id="analysisProgress" style="display: none;">
-            <div class="progress-container">
-                <div class="progress-header">
-                    <span class="progress-phase" id="progressPhase">Analyzing</span>
-                    <span class="progress-step" id="progressStep">Step 1 of 4</span>
+                <div class="setting">
+                    <span class="setting-label">Detail Level:</span>
+                    <select id="detailLevel">
+                        <option value="concise">Concise</option>
+                        <option value="normal">Normal</option>
+                        <option value="verbose">Verbose</option>
+                    </select>
                 </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
-                </div>
-                <div class="progress-text" id="progressText">Analyzing...</div>
-                <div class="progress-details" id="progressDetails"></div>
-            </div>
-        </div>
-        
-        <!-- Error Display -->
-        <div id="errorDisplay" style="display: none;">
-            <div class="error-container">
-                <div class="error-header">
-                    <span class="error-icon">❌</span>
-                    <span class="error-title" id="errorTitle">Error</span>
-                    <button class="error-close" onclick="closeError()">×</button>
-                </div>
-                <div class="error-message" id="errorMessage"></div>
-                <div class="error-details" id="errorDetails" style="display: none;"></div>
-                <div class="error-actions" id="errorActions"></div>
-            </div>
-        </div>
-        
-        <!-- Success Display -->
-        <div id="successDisplay" style="display: none;">
-            <div class="success-container">
-                <div class="success-header">
-                    <span class="success-icon">✅</span>
-                    <span class="success-message" id="successMessage">Success</span>
-                    <button class="success-close" onclick="closeSuccess()">×</button>
-                </div>
-                <div class="success-details" id="successDetails"></div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Commit Plan Preview Section -->
-    <div class="section" id="commitPlanSection" style="display: none;">
-        <div class="section-title">
-            📋 Commit Plan Preview
-            <button class="small-button" onclick="cancelCommitPlan()" style="margin-left: auto;">Cancel</button>
-        </div>
-        
-        <div class="commit-plan-summary" id="commitPlanSummary">
-            <!-- Summary will be populated by JavaScript -->
-        </div>
-        
-        <div class="commit-groups" id="commitGroups">
-            <!-- Commit groups will be populated by JavaScript -->
-        </div>
-        
-        <div class="commit-plan-actions">
-            <button class="primary-button" onclick="executeCommitPlan()" id="executeButton">
-                Execute Commit Plan
-            </button>
-        </div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">
-            📝 Commit History <span id="unpushedBadge" class="status-badge unpushed" style="display: none;">0 unpushed</span>
-        </div>
-        
-        <button class="push-button" onclick="pushCommits()" id="pushButton" disabled>
-            Push All Commits
-        </button>
-        
-        <div id="commitHistory">
-            <div class="empty-state">
-                No commits generated yet. Use "Generate AI Commit" to get started.
-            </div>
-        </div>
-    </div>
-    <script nonce="${nonce}" src="${scriptUri}"></script>
 
-</body>
-</html>`;
+                <div class="setting">
+                    <span class="setting-label block">Max Length:</span>
+                    <input type="number" id="maxLength" min="50" max="200" />
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label">Auto Stage:</span>
+                    <input type="checkbox" id="autoStage" />
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label">Batch Commits:</span>
+                    <input type="checkbox" id="batchCommits" />
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title accordion-header" onclick="toggleAccordion(this)">
+                <span><i class="fa-solid fa-brain icon"></i> Intelligent Commits</span>
+            </div>
+            <div class="accordion-body">
+                <div class="setting-row">
+                    <span class="setting-label">Enable Intelligent Commits:</span>
+                    <input type="checkbox" id="enableIntelligentCommits" />
+                </div>
+
+                <div class="setting">
+                    <span class="setting-label block">Max Files Per Commit:</span>
+                    <input type="number" id="maxFilesPerCommit" min="1" max="50" />
+                </div>
+
+                <div class="setting">
+                    <span class="setting-label block">Grouping Strategy:</span>
+                    <select id="groupingStrategy">
+                        <option value="intelligent">Intelligent</option>
+                        <option value="by-type">By Type</option>
+                        <option value="by-directory">By Directory</option>
+                        <option value="single-commit">Single Commit</option>
+                    </select>
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label">Separate Test Commits:</span>
+                    <input type="checkbox" id="separateTestCommits" />
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label">Enable Feature Detection:</span>
+                    <input type="checkbox" id="enableFeatureDetection" />
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label">Detect Breaking Changes:</span>
+                    <input type="checkbox" id="enableBreakingChangeDetection" />
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label">Prioritize Features:</span>
+                    <input type="checkbox" id="prioritizeFeatures" />
+                </div>
+
+                <div class="setting">
+                    <span class="setting-label block">Max Commit Message Length:</span>
+                    <input type="number" id="maxCommitMessageLength" min="50" max="100" />
+                </div>
+
+                <div class="setting-row" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--vscode-panel-border)">
+                    <button class="small-button" onclick="resetIntelligentCommitSettings()" style="width: 100%">
+                        Reset Intelligent Commit Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><i class="fa-solid fa-robot icon"></i> AI Actions</div>
+            <button class="primary-button" onclick="generateCommit()" id="generateButton">Generate AI Commit</button>
+
+            <!-- Progress indicator -->
+            <div id="analysisProgress" style="display: none">
+                <div class="progress-container">
+                    <div class="progress-header">
+                        <span class="progress-phase" id="progressPhase">Analyzing</span>
+                        <span class="progress-step" id="progressStep">Step 1 of 4</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Analyzing...</div>
+                    <div class="progress-details" id="progressDetails"></div>
+                </div>
+            </div>
+
+            <!-- Error Display -->
+            <div id="errorDisplay" style="display: none">
+                <div class="error-container">
+                    <div class="error-header">
+                        <span class="error-icon">❌</span>
+                        <span class="error-title" id="errorTitle">Error</span>
+                        <button class="error-close" onclick="closeError()">×</button>
+                    </div>
+                    <div class="error-message" id="errorMessage"></div>
+                    <div class="error-details" id="errorDetails" style="display: none"></div>
+                    <div class="error-actions" id="errorActions"></div>
+                </div>
+            </div>
+
+            <!-- Success Display -->
+            <div id="successDisplay" style="display: none">
+                <div class="success-container">
+                    <div class="success-header">
+                        <span class="success-icon">✅</span>
+                        <span class="success-message" id="successMessage">Success</span>
+                        <button class="success-close" onclick="closeSuccess()">×</button>
+                    </div>
+                    <div class="success-details" id="successDetails"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commit Plan Preview Section -->
+        <div class="section" id="commitPlanSection" style="display: none">
+            <div class="section-title">
+                <i class="fa-solid fa-file-lines icon"></i> Commit Plan Preview
+                <button class="small-button" onclick="cancelCommitPlan()" style="margin-left: auto">Cancel</button>
+            </div>
+
+            <div class="commit-plan-summary" id="commitPlanSummary">
+                <!-- Summary will be populated by JavaScript -->
+            </div>
+
+            <div class="commit-groups" id="commitGroups">
+                <!-- Commit groups will be populated by JavaScript -->
+            </div>
+
+            <div class="commit-plan-actions">
+                <button class="primary-button" onclick="executeCommitPlan()" id="executeButton">Execute Commit Plan</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <i class="fa-solid fa-clock-rotate-left icon"></i> Commit History <span id="unpushedBadge" class="status-badge unpushed" style="display: none">0 unpushed</span>
+            </div>
+
+            <button class="push-button" onclick="pushCommits()" id="pushButton" disabled>Push All Commits</button>
+
+            <div id="commitHistory">
+                <div class="empty-state">No commits generated yet. Use "Generate AI Commit" to get started.</div>
+            </div>
+        </div>
+        <script nonce="${nonce}" src="${scriptUri}"></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/js/all.min.js"
+            integrity="sha512-6BTOlkauINO65nLhXhthZMtepgJSghyimIalb+crKRPhvhmsCdnIuGcVbR5/aQY2A+260iC1OPy1oCdB6pSSwQ=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        ></script>
+    </body>
+</html>
+`;
     }
 }
 

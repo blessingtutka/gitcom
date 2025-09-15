@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { CommitGroup, CommitPlan } from './types/models';
 import { AnalyzedChange } from './change-analyzer';
+import { determineScope } from './utils';
 /**
  * Intelligent commit grouping system that analyzes changes and groups them into logical commits
  * Enhanced with performance optimizations including parallel processing and caching
@@ -55,9 +56,9 @@ class CommitGrouper {
             // Pre-process changes for better performance
             const preprocessedChanges = this._preprocessChanges(analyzedChanges);
 
-            // Step 1: Detect feature groups (optimized)
+            // Step 1: Detect feature groups
             const featureDetectionStart = Date.now();
-            const featureGroups = await this._detectFeatureGroupsOptimized(preprocessedChanges);
+            const featureGroups = await this._detectFeatureGroups(preprocessedChanges);
             this.stats.featureDetectionTime = Date.now() - featureDetectionStart;
 
             // Step 2: Separate different change types (parallel processing)
@@ -135,18 +136,18 @@ class CommitGrouper {
      * @param changes - Array of analyzed changes
      * @returns Map of feature names to changes
      */
-    async detectFeatureGroups(changes: AnalyzedChange[]): Promise<Map<string, AnalyzedChange[]>> {
-        const preprocessed = this._preprocessChanges(changes);
-        return this._detectFeatureGroupsOptimized(preprocessed);
-    }
+    // async detectFeatureGroups(changes: AnalyzedChange[]): Promise<Map<string, AnalyzedChange[]>> {
+    //     const preprocessed = this._preprocessChanges(changes);
+    //     return this._detectFeatureGroups(preprocessed);
+    // }
 
     /**
-     * Optimized version of feature group detection using preprocessed data
+     * Feature group detection using preprocessed data
      * @private
      * @param preprocessed - Preprocessed data structures
      |* @returns Map of feature names to changes
      */
-    private async _detectFeatureGroupsOptimized(preprocessed: PreprocessedData): Promise<Map<string, AnalyzedChange[]>> {
+    private async _detectFeatureGroups(preprocessed: PreprocessedData): Promise<Map<string, AnalyzedChange[]>> {
         const { changes } = preprocessed;
         const featureGroups = new Map<string, AnalyzedChange[]>();
         const processedFiles = new Set<string>();
@@ -293,7 +294,7 @@ class CommitGrouper {
     }
 
     /**
-     * Optimized version of separating different types of changes with parallel processing
+     * Separating different types of changes with parallel processing
      * @private
      * @param featureGroups - Feature groups from detectFeatureGroups
      * @param preprocessed - Preprocessed data structures
@@ -364,8 +365,7 @@ class CommitGrouper {
                     new CommitGroup({
                         id: `temp-${startingGroupId}`, // Will be reassigned later
                         type: 'docs',
-                        scope: this._determineScope(categorizedFiles.docs),
-                        description: this._generateDescription('docs', featureName, categorizedFiles.docs),
+                        scope: determineScope(categorizedFiles.docs),
                         files: categorizedFiles.docs,
                         priority: this._calculatePriority('docs', categorizedFiles.docs),
                     }),
@@ -377,8 +377,7 @@ class CommitGrouper {
                     new CommitGroup({
                         id: `temp-${startingGroupId}`,
                         type: 'test',
-                        scope: this._determineScope(categorizedFiles.test),
-                        description: this._generateDescription('test', featureName, categorizedFiles.test),
+                        scope: determineScope(categorizedFiles.test),
                         files: categorizedFiles.test,
                         priority: this._calculatePriority('test', categorizedFiles.test),
                     }),
@@ -391,8 +390,7 @@ class CommitGrouper {
                     new CommitGroup({
                         id: `temp-${startingGroupId}`,
                         type: 'chore',
-                        scope: this._determineScope(categorizedFiles.config),
-                        description: this._generateDescription('chore', featureName, categorizedFiles.config),
+                        scope: determineScope(categorizedFiles.config),
                         files: categorizedFiles.config,
                         priority: this._calculatePriority('chore', categorizedFiles.config),
                     }),
@@ -405,8 +403,7 @@ class CommitGrouper {
                     new CommitGroup({
                         id: `temp-${startingGroupId}`,
                         type: 'style',
-                        scope: this._determineScope(categorizedFiles.style),
-                        description: this._generateDescription('style', featureName, categorizedFiles.style),
+                        scope: determineScope(categorizedFiles.style),
                         files: categorizedFiles.style,
                         priority: this._calculatePriority('style', categorizedFiles.style),
                     }),
@@ -782,67 +779,6 @@ class CommitGrouper {
     }
 
     /**
-     * Determines the feature name for a group of related files using advanced analysis (legacy method)
-     * @private
-     * @param primaryChange - The primary change in the group
-     * @param relatedFiles - Related files in the group
-     * @returns Feature name
-     */
-    private _determineFeatureName(primaryChange: AnalyzedChange, relatedFiles: AnalyzedChange[]): string {
-        // Create temporary preprocessed data for compatibility
-        const preprocessed = this._preprocessChanges([primaryChange, ...relatedFiles]);
-        return this._determineFeatureNameOptimized(primaryChange, relatedFiles, preprocessed);
-    }
-
-    /**
-     * Analyzes feature context from file changes
-     * @private
-     * @param files - Files to analyze
-     * @returns Feature analysis result
-     */
-    private _analyzeFeatureContext(files: AnalyzedChange[]): FeatureAnalysisResult {
-        const featureCounts: { [key: string]: number } = {};
-        const domainFeatures: string[] = [];
-        const importedModules = new Set<string>();
-
-        for (const file of files) {
-            // Count detected features
-            for (const feature of file.detectedFeatures) {
-                featureCounts[feature] = (featureCounts[feature] || 0) + 1;
-            }
-
-            // Extract domain features from imports
-            const diffLines = file.diff.split('\n');
-            for (const line of diffLines) {
-                if (line.startsWith('+')) {
-                    // Look for import statements
-                    const importMatch = line.match(/import.*from\s+['"`]([^'"`]+)['"`]/);
-                    const requireMatch = line.match(/require\(['"`]([^'"`]+)['"`]\)/);
-
-                    if (importMatch || requireMatch) {
-                        const modulePath = importMatch ? importMatch[1] : requireMatch![1];
-                        importedModules.add(modulePath);
-
-                        // Extract domain features from module names
-                        const domainFeature = this._extractDomainFeature(modulePath);
-                        if (domainFeature) {
-                            domainFeatures.push(domainFeature);
-                        }
-                    }
-                }
-            }
-        }
-
-        const commonFeatures = Object.entries(featureCounts).sort(([, a], [, b]) => b - a);
-
-        return {
-            commonFeatures,
-            domainFeatures: [...new Set(domainFeatures)],
-            importedModules: Array.from(importedModules),
-        };
-    }
-
-    /**
      * Extracts domain feature from module path
      * @private
      * @param modulePath - Module path from import/require
@@ -969,7 +905,7 @@ class CommitGrouper {
      * @param featureName - Name of the feature
      * @returns Change type ('feat' or 'fix')
      */
-    protected _detectChangeIntent(files: AnalyzedChange[], featureName: string): ChangeType {
+    protected _detectChangeIntent(files: AnalyzedChange[], featureName: string): CommitType {
         // Advanced heuristics for detecting fixes vs features
         const fixKeywords = ['fix', 'bug', 'error', 'issue', 'patch', 'hotfix', 'repair', 'correct', 'resolve'];
         const featureKeywords = ['add', 'new', 'create', 'implement', 'feature', 'enhance', 'improve', 'extend'];
@@ -1176,14 +1112,13 @@ class CommitGrouper {
      * @param startingId - Starting ID for groups
      * @returns Array of commit groups
      */
-    protected _splitLargeGroup(files: AnalyzedChange[], changeType: ChangeType, featureName: string, startingId: number): CommitGroup[] {
+    protected _splitLargeGroup(files: AnalyzedChange[], changeType: CommitType, featureName: string, startingId: number): CommitGroup[] {
         if (files.length <= this.options.maxFilesPerCommit) {
             return [
                 new CommitGroup({
                     id: `group-${startingId}`,
                     type: changeType,
-                    scope: this._determineScope(files),
-                    description: this._generateDescription(changeType, featureName, files),
+                    scope: determineScope(files),
                     files: files,
                     priority: this._calculatePriority(changeType, files),
                 }),
@@ -1200,8 +1135,7 @@ class CommitGrouper {
                 new CommitGroup({
                     id: `group-${startingId + groups.length}`,
                     type: changeType,
-                    scope: this._determineScope(groupFiles),
-                    description: this._generateDescription(changeType, `${featureName} (part ${groupNumber})`, groupFiles),
+                    scope: determineScope(groupFiles),
                     files: groupFiles,
                     priority: this._calculatePriority(changeType, groupFiles),
                 }),
@@ -1209,74 +1143,6 @@ class CommitGrouper {
         }
 
         return groups;
-    }
-
-    /**
-     * Determines the scope for a commit based on the files
-     * @private
-     * @param files - Files in the commit
-     * @returns Scope or null if no clear scope
-     */
-    protected _determineScope(files: AnalyzedChange[]): string | null {
-        if (files.length === 0) return null;
-
-        // Find common directory
-        const dirs = files.map((f) => path.dirname(f.filePath));
-        const commonDir = this._findCommonDirectory(dirs);
-
-        if (commonDir && commonDir !== '.' && commonDir !== '') {
-            const dirParts = commonDir.split(path.sep).filter((part) => part);
-            return dirParts[dirParts.length - 1];
-        }
-
-        // Fallback to most common feature
-        const features = files.flatMap((f) => f.detectedFeatures);
-        const featureCounts: { [key: string]: number } = {};
-        for (const feature of features) {
-            featureCounts[feature] = (featureCounts[feature] || 0) + 1;
-        }
-
-        const mostCommon = Object.entries(featureCounts).sort(([, a], [, b]) => b - a)[0];
-
-        return mostCommon ? mostCommon[0] : null;
-    }
-
-    /**
-     * Generates a description for a commit group
-     * @private
-     * @param type - Commit type
-     * @param featureName - Feature name
-     * @param files - Files in the commit
-     * @returns Commit description
-     */
-    protected _generateDescription(type: string, featureName: string, files: AnalyzedChange[]): string {
-        const fileCount = files.length;
-
-        if (type === 'docs') {
-            return fileCount === 1 ? `update ${path.basename(files[0].filePath)}` : `update documentation (${fileCount} files)`;
-        }
-
-        if (type === 'test') {
-            return fileCount === 1 ? `add tests for ${featureName}` : `add tests (${fileCount} files)`;
-        }
-
-        if (type === 'style') {
-            return fileCount === 1 ? `update styles for ${featureName}` : `update styles (${fileCount} files)`;
-        }
-
-        if (type === 'chore') {
-            return fileCount === 1 ? `update ${path.basename(files[0].filePath)}` : `update configuration (${fileCount} files)`;
-        }
-
-        // For feat, fix, and refactor types
-        const actionMap: { [key: string]: string } = {
-            feat: 'add',
-            fix: 'fix',
-            refactor: 'refactor',
-        };
-        const action = actionMap[type] || 'update';
-
-        return fileCount === 1 ? `${action} ${featureName}` : `${action} ${featureName} (${fileCount} files)`;
     }
 
     /**
@@ -1446,14 +1312,14 @@ class CommitGrouper {
         for (const group of commitPlan.groups) {
             if (group.files.length > this.options.maxFilesPerCommit) {
                 commitPlan.addWarning(
-                    `Commit "${group.description}" contains ${group.files.length} files, which exceeds the recommended maximum of ${this.options.maxFilesPerCommit}`,
+                    `Commit "${group.id}" contains ${group.files.length} files, which exceeds the recommended maximum of ${this.options.maxFilesPerCommit}`,
                 );
             }
 
             const totalLines = group.getLineStats();
             if (totalLines.added + totalLines.removed > 500) {
                 commitPlan.addWarning(
-                    `Commit "${group.description}" contains ${totalLines.added + totalLines.removed} line changes, consider splitting into smaller commits`,
+                    `Commit "${group.id}" contains ${totalLines.added + totalLines.removed} line changes, consider splitting into smaller commits`,
                 );
             }
         }

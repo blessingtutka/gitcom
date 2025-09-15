@@ -1,9 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { GitAnalyzer } from './git-analyzer';
 import { ChangeAnalyzer } from './change-analyzer';
-import { CommitGenerator } from './commit-generator';
-import { CommitGrouper } from './commit-grouper';
 import { MessageGenerator } from './message-generator';
 import { CommitOrchestrator } from './commit-orchestrator';
 import { AdvancedFeatureDetector } from './advanced-feature-detector';
@@ -17,10 +14,8 @@ import GitComPanelProvider from './panel-provider';
 import { ChangeAnalysis } from './types/models';
 
 class GitcomExtension {
-    private gitAnalyzer: GitAnalyzer | null;
     private changeAnalyzer: ChangeAnalyzer | null;
-    private commitGenerator: CommitGenerator | null;
-    private commitGrouper: CommitGrouper | null;
+    private commitGrouper: AIClusteringCommitGrouper | null;
     private messageGenerator: MessageGenerator | null;
     private commitOrchestrator: CommitOrchestrator | null;
     private advancedFeatureDetector: AdvancedFeatureDetector | null;
@@ -37,13 +32,11 @@ class GitcomExtension {
             const config = vscode.workspace.getConfiguration('gitcom');
 
             // Initialize core components
-            this.gitAnalyzer = new GitAnalyzer();
             this.changeAnalyzer = new ChangeAnalyzer(workspaceRoot, {
                 enableCache: config.get('enableCache', true),
                 maxConcurrency: config.get('maxConcurrency', 5),
                 batchSize: config.get('batchSize', 10),
             });
-            this.commitGenerator = new CommitGenerator();
             // this.commitGrouper = new CommitGrouper({
             //     enableParallelProcessing: config.get('enableParallelProcessing', true),
             //     maxConcurrency: config.get('maxConcurrency', 3),
@@ -88,9 +81,7 @@ class GitcomExtension {
         } catch (error) {
             console.warn('GitCom: Some components failed to initialize:', (error as Error).message);
             // Create minimal fallbacks
-            this.gitAnalyzer = null;
             this.changeAnalyzer = null;
-            this.commitGenerator = null;
             this.commitGrouper = null;
             this.messageGenerator = null;
             this.commitOrchestrator = null;
@@ -166,6 +157,8 @@ class GitcomExtension {
         }
     }
 
+    async generateAiCommitMessage(): Promise<void> {}
+
     async generateCommitMessage(): Promise<void> {
         try {
             if (!this.changeAnalyzer || !this.commitGrouper || !this.messageGenerator || !this.commitOrchestrator) {
@@ -175,11 +168,6 @@ class GitcomExtension {
 
             const config = vscode.workspace.getConfiguration('gitcom');
             const useIntelligentCommits = config.get('enableIntelligentCommits', true);
-
-            if (!useIntelligentCommits) {
-                // Fall back to legacy behavior
-                return this.generateLegacyCommitMessage();
-            }
 
             this.ui.showProgress('Analyzing unstaged changes...');
 
@@ -307,44 +295,6 @@ class GitcomExtension {
         }
     }
 
-    async generateLegacyCommitMessage(): Promise<void> {
-        try {
-            if (!this.gitAnalyzer || !this.changeAnalyzer || !this.commitGenerator) {
-                this.ui.showError('GitCom legacy components not properly initialized');
-                return;
-            }
-
-            this.ui.showProgress('Analyzing unstaged changes...');
-
-            // Use the new ChangeAnalyzer for intelligent analysis
-            const analyzedChanges = await this.changeAnalyzer.analyzeUnstagedChanges();
-            if (!analyzedChanges || analyzedChanges.length === 0) {
-                this.ui.showWarning('No unstaged changes found. Please make some changes first.');
-                return;
-            }
-
-            this.ui.updateProgress('Generating commit message...');
-
-            // Use the existing commit generator with the analyzed changes
-            const commitMessage = await this.commitGenerator.generate(analyzedChanges);
-
-            this.ui.hideProgress();
-            const result = await this.ui.showCommitDialog(commitMessage, analyzedChanges);
-
-            if (result.confirmed) {
-                // Stage all files and commit
-                for (const change of analyzedChanges) {
-                    await this.gitAnalyzer.git.add(change.filePath);
-                }
-                await this.gitAnalyzer.commit(result.message);
-                this.ui.showSuccess('Commit created successfully!');
-            }
-        } catch (error) {
-            if (this.ui.hideProgress) this.ui.hideProgress();
-            this.ui.showError(`Error generating commit: ${(error as Error).message}`);
-        }
-    }
-
     async analyzeChanges(): Promise<void> {
         try {
             if (!this.changeAnalyzer) {
@@ -361,6 +311,7 @@ class GitcomExtension {
                 changeTypes: {},
                 fileCategories: {},
                 totalLines: { added: 0, removed: 0 },
+                scope: [],
                 detectedFeatures: [],
                 complexity: 'low',
             };

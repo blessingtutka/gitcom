@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { CommitGroup } from './types';
 import { AnalyzedChange } from './change-analyzer';
+import { generateMultiFileDescription, generateSingleFileDescription, scopePatterns } from './utils';
 
 /**
  * Intelligent commit message generator that creates conventional commit messages
@@ -12,7 +13,7 @@ class MessageGenerator {
     constructor(config: MessageGeneratorConfig = {}) {
         this.config = {
             maxLength: config.maxLength || 72,
-            includeScope: config.includeScope !== false,
+            includename: config.includeScope !== false,
             includeBody: config.includeBody || false,
             ...config,
         } as Required<MessageGeneratorConfig>;
@@ -26,14 +27,15 @@ class MessageGenerator {
     async generateCommitMessage(commitGroup: CommitGroup): Promise<string> {
         try {
             const type = commitGroup.type || (await this.detectCommitType(commitGroup.files));
-            const scope = await this.detectScope(commitGroup.files);
+
+            const scope = commitGroup.scope || '';
             const hasBreakingChanges = await this.detectBreakingChanges(commitGroup.files);
-            const description = await this.generateDescription(commitGroup.files, type, scope, hasBreakingChanges);
+            const description = await this.generateDescription(commitGroup, type);
 
             // Build conventional commit message
             let message = type;
 
-            if (scope && this.config.includeScope) {
+            if (scope) {
                 message += `(${scope})`;
             }
 
@@ -136,257 +138,15 @@ class MessageGenerator {
         return 'chore';
     }
 
-    /**
-     * Detects the scope based on file paths and change analysis
-     * @param changes - Array of analyzed changes
-     * @returns Detected scope or null
-     */
-    async detectScope(changes: AnalyzedChange[]): Promise<string | null> {
-        if (!changes || changes.length === 0) {
-            return null;
-        }
-
-        const scopeCandidates = new Map<string, number>();
-
-        for (const change of changes) {
-            const scopes = this._extractScopesFromPath(change.filePath);
-
-            for (const scope of scopes) {
-                scopeCandidates.set(scope, (scopeCandidates.get(scope) || 0) + 1);
-            }
-        }
-
-        // Find the most common scope
-        let bestScope: string | null = null;
-        let maxCount = 0;
-
-        for (const [scope, count] of scopeCandidates.entries()) {
-            if (count > maxCount) {
-                maxCount = count;
-                bestScope = scope;
-            }
-        }
-
-        // Only return scope if it appears in at least half the files
-        if (maxCount >= Math.ceil(changes.length / 2)) {
-            return bestScope;
-        }
-
-        return null;
-    }
-
-    /**
-     * Generates a concise but descriptive commit message description
-     * @param changes - Array of analyzed changes
-     * @param type - Commit type
-     * @param scope - Commit scope
-     * @param hasBreakingChanges - Whether there are breaking changes
-     * @returns Generated description
-     */
-    async generateDescription(changes: AnalyzedChange[], type: string, scope: string | null, hasBreakingChanges = false): Promise<string> {
-        if (!changes || changes.length === 0) {
-            return 'update files';
-        }
-
+    private generateDescription(groupe: CommitGroup, primaryAction: string): string {
+        const changes = groupe.files;
         const fileCount = changes.length;
-        const primaryFeatures = this._extractPrimaryFeatures(changes);
-        const mainFile = changes[0];
+        const scope = groupe.scope || '';
 
-        // Single file changes
         if (fileCount === 1) {
-            return this._generateSingleFileDescription(mainFile, type, primaryFeatures, hasBreakingChanges);
-        }
-
-        // Multiple file changes
-        return this._generateMultiFileDescription(changes, type, primaryFeatures, fileCount, hasBreakingChanges);
-    }
-
-    /**
-     * Extracts scopes from file paths using common patterns
-     * @private
-     * @param filePath - File path to analyze
-     * @returns Array of potential scopes
-     */
-    private _extractScopesFromPath(filePath: string): string[] {
-        const scopes: string[] = [];
-        const pathParts = filePath.split(path.sep).filter((part) => part && part !== '.');
-
-        // Common scope patterns for directories
-        const scopePatterns = [
-            { pattern: /^src\/components?\/(.+)/, index: 1 },
-            { pattern: /^src\/pages?\/(.+)/, index: 1 },
-            { pattern: /^src\/services?\/(.+)/, index: 1 },
-            { pattern: /^src\/utils?\/(.+)/, index: 1 },
-            { pattern: /^src\/api\/(.+)/, index: 1 },
-            { pattern: /^src\/hooks?\/(.+)/, index: 1 },
-            { pattern: /^src\/store\/(.+)/, index: 1 },
-            { pattern: /^src\/lib\/(.+)/, index: 1 },
-            { pattern: /^tests?\/(.+)/, index: 1 },
-            { pattern: /^docs?\/(.+)/, index: 1 },
-        ];
-
-        for (const { pattern, index } of scopePatterns) {
-            const match = filePath.match(pattern);
-            if (match && match[index]) {
-                const scope = match[index].split('/')[0].replace(/\.(js|ts|jsx|tsx|vue|py|java|cs|md|txt)$/, '');
-                if (scope && scope.length > 1) {
-                    scopes.push(scope);
-                }
-            }
-        }
-
-        // Check for files directly in src with meaningful names
-        if (scopes.length === 0 && filePath.startsWith('src/')) {
-            const fileName = path.basename(filePath, path.extname(filePath));
-            if (fileName && fileName.length > 1 && fileName !== 'index' && fileName !== 'main') {
-                scopes.push(fileName);
-            }
-        }
-
-        // Fallback to directory-based scopes
-        if (scopes.length === 0 && pathParts.length > 1) {
-            const relevantParts = pathParts.slice(0, 2); // Take first two directory levels
-            for (const part of relevantParts) {
-                if (part !== 'src' && part !== 'test' && part !== 'tests' && part.length > 1) {
-                    scopes.push(part);
-                }
-            }
-        }
-
-        return scopes;
-    }
-
-    /**
-     * Extracts primary features from changes
-     * @private
-     * @param changes - Array of analyzed changes
-     * @returns Array of primary features
-     */
-    private _extractPrimaryFeatures(changes: AnalyzedChange[]): string[] {
-        const featureCount = new Map<string, number>();
-
-        for (const change of changes) {
-            for (const feature of change.detectedFeatures) {
-                featureCount.set(feature, (featureCount.get(feature) || 0) + 1);
-            }
-        }
-
-        // Sort by frequency and return top features
-        return Array.from(featureCount.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([feature]) => feature);
-    }
-
-    /**
-     * Generates description for single file changes
-     * @private
-     * @param change - The file change
-     * @param type - Commit type
-     * @param features - Detected features
-     * @param hasBreakingChanges - Whether there are breaking changes
-     * @returns Generated description
-     */
-    private _generateSingleFileDescription(change: AnalyzedChange, type: string, features: string[], hasBreakingChanges = false): string {
-        const fileName = path.basename(change.filePath, path.extname(change.filePath));
-        const primaryFeature = features[0] || fileName;
-
-        switch (type) {
-            case 'feat':
-                if (change.changeType === 'added') {
-                    return `add ${primaryFeature} functionality`;
-                }
-                // If there are breaking changes, it's likely removing/changing existing functionality
-                if (hasBreakingChanges) {
-                    return `resolve issue in ${primaryFeature}`;
-                }
-                return `enhance ${primaryFeature} with new features`;
-
-            case 'fix':
-                return `resolve issue in ${primaryFeature}`;
-
-            case 'docs':
-                return `update ${primaryFeature} documentation`;
-
-            case 'test':
-                return `add tests for ${primaryFeature}`;
-
-            case 'style':
-                return `improve ${primaryFeature} styling`;
-
-            case 'refactor':
-                return `refactor ${primaryFeature} implementation`;
-
-            case 'perf':
-                return `optimize ${primaryFeature} performance`;
-
-            case 'chore':
-                return `update ${primaryFeature} configuration`;
-
-            default:
-                return `update ${primaryFeature}`;
-        }
-    }
-
-    /**
-     * Generates description for multiple file changes
-     * @private
-     * @param changes - Array of changes
-     * @param type - Commit type
-     * @param features - Detected features
-     * @param fileCount - Number of files
-     * @param hasBreakingChanges - Whether there are breaking changes
-     * @returns Generated description
-     */
-    private _generateMultiFileDescription(
-        changes: AnalyzedChange[],
-        type: string,
-        features: string[],
-        fileCount: number,
-        hasBreakingChanges = false,
-    ): string {
-        const primaryFeature = features[0];
-        const hasMultipleFeatures = features.length > 1;
-
-        switch (type) {
-            case 'feat':
-                if (primaryFeature && !hasMultipleFeatures) {
-                    return `implement ${primaryFeature} feature`;
-                }
-                return `add new functionality across ${fileCount} files`;
-
-            case 'fix':
-                if (primaryFeature && !hasMultipleFeatures) {
-                    return `fix issues in ${primaryFeature}`;
-                }
-                return `resolve issues across ${fileCount} files`;
-
-            case 'docs':
-                return fileCount > 3 ? 'update documentation' : `update ${fileCount} documentation files`;
-
-            case 'test':
-                if (primaryFeature && !hasMultipleFeatures) {
-                    return `add comprehensive tests for ${primaryFeature}`;
-                }
-                return 'add comprehensive test coverage';
-
-            case 'style':
-                return fileCount > 3 ? 'improve styling' : `update styles in ${fileCount} files`;
-
-            case 'refactor':
-                if (primaryFeature && !hasMultipleFeatures) {
-                    return `refactor ${primaryFeature} structure`;
-                }
-                return `refactor codebase structure (${fileCount} files)`;
-
-            case 'perf':
-                return 'optimize performance across multiple components';
-
-            case 'chore':
-                return fileCount > 5 ? 'update configuration' : `update ${fileCount} configuration files`;
-
-            default:
-                return `update ${fileCount} files`;
+            return generateSingleFileDescription(changes[0], primaryAction);
+        } else {
+            return generateMultiFileDescription(changes, primaryAction, scope);
         }
     }
 
