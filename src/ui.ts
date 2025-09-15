@@ -59,13 +59,14 @@ class UI {
         };
     }
 
-    showAnalysis(analysis: ChangeAnalysis): void { // before change analysis
+    showAnalysis(analysis: ChangeAnalysis): void {
+        // before change analysis
         console.log('=== Git Changes Analysis ===');
         console.log(`Total files: ${analysis.totalFiles}`);
         console.log(`Complexity: ${analysis.complexity}`);
         // console.log(`Scope: ${analysis.scope || 'none detected'}`);
         console.log('Change types:', analysis.changeTypes);
-        // console.log('File types:', analysis.fileTypes); 
+        // console.log('File types:', analysis.fileTypes);
         console.log(`Lines: +${analysis.totalLines.added}/-${analysis.totalLines.removed}`);
     }
 
@@ -98,7 +99,7 @@ class UI {
 
         console.log('\nCommit Groups:');
         commitPlan.groups.forEach((group, index) => {
-            console.log(`\n${index + 1}. ${group.type}${group.scope ? `(${group.scope})` : ''}: ${group.description}`);
+            console.log(`\n${index + 1}. ${group.type}${group.scope ? `(${group.scope})` : ''}`);
             console.log(`   Message: ${group.message}`);
             console.log(`   Files (${group.files.length}):`);
             group.files.forEach((file) => {
